@@ -1,0 +1,6 @@
+@CreditRiskAgent.Api_HostAddress = http://localhost:5027
+
+GET {{CreditRiskAgent.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
