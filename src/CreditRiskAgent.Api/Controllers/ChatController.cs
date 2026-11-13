@@ -3,7 +3,7 @@ using CreditRiskAgent.Application.Common.Plugins;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel;
+using System.Text.Json;
 
 namespace CreditRiskAgent.Api.Controllers;
 
@@ -13,17 +13,21 @@ public class ChatController : ControllerBase
 {
     private readonly Kernel _kernel;
     private readonly SegurosPlugin _segurosPlugin;
+    private readonly ILogger<ChatController> _logger;
 
-    public ChatController(Kernel kernel, SegurosPlugin segurosPlugin)
+    public ChatController(Kernel kernel, SegurosPlugin segurosPlugin, ILogger<ChatController> logger)
     {
         _kernel = kernel;
         _segurosPlugin = segurosPlugin;
+        _logger = logger;
 
         // Importar el plugin de seguros al Kernel para que Gemini pueda invocarlo automáticamente
         if (!_kernel.Plugins.Contains("Seguros"))
         {
             _kernel.Plugins.AddFromObject(_segurosPlugin, "Seguros");
         }
+
+        _logger = logger;
     }
 
     [HttpPost("mensaje")]
@@ -66,6 +70,19 @@ public class ChatController : ControllerBase
                 history,
                 executionSettings,
                 _kernel);
+            // Diagnóstico inicial: registra los metadatos que devuelve el conector.
+            // Primero verificaremos si incluyen Usage y qué campos expone esta versión.
+            // Con FunctionChoiceBehavior.Auto(), no asumir que representa todas las
+            // llamadas internas del ciclo de Function Calling.
+            var metadataJson = result.Metadata is null
+                ? "{}"
+                : JsonSerializer.Serialize(result.Metadata);
+
+            _logger.LogInformation(
+                "Gemini response metadata. Model: {ModelId}. Metadata: {Metadata}",
+                "gemini-2.5-flash",
+                metadataJson);
+
 
             var response = new ChatResponse
             {
